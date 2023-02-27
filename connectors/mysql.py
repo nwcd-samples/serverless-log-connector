@@ -1,12 +1,12 @@
 ######################################
-#代码参考了
+# refer to
 # https://github.com/ccampo133/rds-logs-to-s3
 # https://github.com/awslabs/rds-support-tools/tree/master/database-logs/move-rds-logs-to-s3
-# 更新原因
-# 1.支持增量同步
-# 2.支持大文件同步
-# 3.同步到s3时，生成对应的分区前缀，方便athena查询
-# 4.对数据进行了gzip压缩，优化成本
+# why do i make some change?
+# 1.incremental appending 
+# 2.support big size file
+# 3.add s3 prefix to easy to query by athena
+# 4.gzip
 ######################################
 from __future__ import print_function
 import boto3
@@ -16,11 +16,14 @@ from datetime import datetime
 import io
 import gzip
 
+# change it to your region code
 region = "cn-northwest-1"
+
+
 # initialize
 rds_client = boto3.client('rds', region_name=region)
 s3client = boto3.client('s3', region_name=region)
-# dynamodb 用于保存状态信息
+# used to save status info
 dynamodb = boto3.client('dynamodb', region_name=region)
 
 
@@ -47,7 +50,7 @@ def copy_logs_from_rds_to_s3(rds_instance_name: str,
 
     # get the config file, if the config isn't present this is the first run
     try:
-        # 查询last_written_time
+        # query last_written_time
         wr = dynamodb.get_item(TableName='db_log_to_s3', Key={'db_log_name': {'S': last_writen_key}})
         if 'Item' in wr:
             last_written_time = int(wr['Item']['mark']['S'])
@@ -81,7 +84,7 @@ def copy_logs_from_rds_to_s3(rds_instance_name: str,
 
             log_file_key = f"{rds_instance_name}-{dbLog['LogFileName']}"
 
-            # 查询上次的mark
+            # get last mark
             lr = dynamodb.get_item(TableName='db_log_to_s3', Key={'db_log_name': {'S': log_file_key}})
             if 'Item' in lr:
                 marker = lr['Item']['mark']['S']
@@ -140,10 +143,6 @@ def copy_logs_from_rds_to_s3(rds_instance_name: str,
             raise e
 
     print("Log file export complete")
-
-
-# config = {'BucketName': "<bucket-name>", 'RDSInstanceName': "<instance-name>",
-# 'LogNamePrefix': "", 'Region': "<>region-name"}
 
 if __name__ == '__main__':
     response = rds_client.describe_db_instances()
