@@ -34,9 +34,10 @@
     "state": ["FAILED"]
   }
 }
+
+```
 4. 配置cloudwatch rule 目标。选择前面创建的主题作为规则目标
 ![cloudwatchrule](/assets/ctarget.png)
-```
 
 ## 注意
 第一次跑，要评估一下目前审计日志的大小，如果使用glue 跑，超时时间大一些，或者不同的job跑不同的db
