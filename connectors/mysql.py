@@ -16,6 +16,7 @@ from datetime import datetime
 import io
 import gzip
 
+
 # change it to your region code
 region = "cn-northwest-1"
 
@@ -28,6 +29,7 @@ dynamodb = boto3.client('dynamodb', region_name=region)
 
 
 def copy_logs_from_rds_to_s3(rds_instance_name: str,
+                             tag:str,
                              s3_bucket_name: str,
                              log_name_prefix: str):
     last_writen_key = rds_instance_name + "_" + "last_writen"
@@ -101,19 +103,20 @@ def copy_logs_from_rds_to_s3(rds_instance_name: str,
                     print(f"download log file {dbLog['LogFileName']}")
 
                     log_file_data = log_file['LogFileData']
-                    marker = log_file['Marker']
 
-                    log_file_data_cleaned = log_file_data.encode(errors='ignore')
+                    log_file_data_cleaned = log_file_data.encode('utf-8')
                     my_gzipped_bytes = gzip.compress(log_file_data_cleaned)
                     content = io.BytesIO(my_gzipped_bytes)
                     # upload the log file to S3
 
                     time_prefix = backup_start_time.strftime('%Y-%m-%dT%H:%M')
-                    o_name = f"db={rds_instance_name}/ingestion_time={time_prefix}/{dbLog['LogFileName']}/{part}.log.gzip"
+                    log_name = dbLog['LogFileName'].replace("/", "_")
+                    o_name = f"tag={tag}/db={rds_instance_name}/ingestion_time={time_prefix}/log={log_name}/{part}.log.gz"
 
                     s3client.put_object(Bucket=s3_bucket_name, Key=o_name, Body=content)
                     print(f"Uploaded {dbLog['LogFileName']}:{part} to S3 {s3_bucket_name}")
                     part += 1
+                    marker = log_file['Marker']
                     if not log_file['AdditionalDataPending']:
                         break
             except Exception as e:
@@ -145,9 +148,18 @@ def copy_logs_from_rds_to_s3(rds_instance_name: str,
     print("Log file export complete")
 
 if __name__ == '__main__':
-    response = rds_client.describe_db_instances()
-    db_instances_name = [item['DBInstanceIdentifier'] for item in response['DBInstances']]
-    for db in db_instances_name:
+    # change it to your bucket
+    target_s3_bucket = "tx-audit-log2"
+    # log file prefix
+    log_prefix = "audit"
+    # change it to your db identifier and db tag
+    dbinfo = [
+        {"name":"demo", "tag":"prod"},
+        {"name":"stage", "tag":"test"}
+    ]
+    for info in dbinfo:
+        db = info['name']
+        tag = info['tag']
         print(f"process {db} ....")
-        copy_logs_from_rds_to_s3(db, "tx-rds-audit", "audit")
+        copy_logs_from_rds_to_s3(db, tag, target_s3_bucket, log_prefix)
         print(f"success to sync log file for {db} ....")
