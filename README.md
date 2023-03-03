@@ -13,6 +13,35 @@
 ![glue job](/assets/gcode.png)
 3. 配置 glue job相关的参数，如执行role, 重试次数改为 0，超时时间根据要同步的数据量估计，1GB的数据大概要3分钟
 ![glue job](/assets/glueconfig.png)
+
+4. 配置执行角色，角色策略参考下图及代码
+![glue role](/assets/rolerule.png)
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "dynamodb:PutItem",
+                "rds:DownloadDBLogFilePortion",
+                "dynamodb:GetItem",
+                "rds:DownloadCompleteDBLogFile",
+                "rds:DescribeDBLogFiles",
+                "s3:PutObjectTagging"
+            ],
+            "Resource": [
+                "arn:aws-cn:rds:cn-northwest-1:xxxxxxx:db:*",
+                "arn:aws-cn:dynamodb:cn-northwest-1:xxxxxx:table/db_log_to_s3",
+                "arn:aws-cn:s3:::tx-audit-log2/*"
+            ]
+        }
+    ]
+}
+```
+注意修改上面的账号信息，dynamodb 表信息，s3 桶信息
 4. 在 glue schedules页面配置执行计划 （第一次同步，由于数据量较大，建议手动触发， 等第一次同步成功以后，后续的增量同步，可以使用scheduler触发执行）
 ![glue job](/assets/glueschedule.png)
 5. 配置dynamodb, 如图新建一个dynamodb table, 并按截图配置
